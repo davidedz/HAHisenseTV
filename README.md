@@ -61,12 +61,16 @@ automatically (no manual resource needed — restart HA and hard-refresh the
 browser). Everything is configured from the UI:
 
 1. Edit a dashboard → **Add card** → *Hisense VIDAA Remote*.
-2. Pick the TV's media player, an optional name, and whether the number pad is
-   collapsible (closed/open at start) or hidden; optionally show the colour keys.
-3. Under **Quick-launch shortcuts** add, reorder or remove buttons. Each one has
+2. Pick the TV's media player and an optional name. You can hide the **title**
+   and the **status line** (e.g. "On · TV") independently.
+3. Set the number pad: collapsible (closed/open at start), **popup** (opens
+   like the INPUT list) or hidden; optionally show the colour keys.
+4. Under **Inputs shown in the INPUT popup** pick only the inputs/apps you want
+   (leave empty for the TV's full list), renaming each and choosing an icon.
+5. Under **Quick-launch shortcuts** add, reorder or remove buttons. Each one has
    a name, an icon (or short text), and an action: *Launch app*, *Select
-   source* (any input from the TV's source list) or *Send key*. **Restore
-   defaults** brings back Netflix, Prime Video, Disney+ and YouTube.
+   source* or *Send key*. **Restore defaults** brings back Netflix, Prime Video,
+   Disney+ and YouTube.
 
 The card has power with on/off status, D-pad + OK (hold to repeat),
 back/exit/home, an **INPUT** button that opens the full source list,

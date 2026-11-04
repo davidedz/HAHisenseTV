@@ -9,7 +9,7 @@
  * See README.md for all options.
  */
 
-const CARD_VERSION = "1.1.0";
+const CARD_VERSION = "1.2.0";
 
 const I18N = {
   en: {
@@ -33,6 +33,14 @@ const I18N = {
     hidden: "Never show",
     show_colors: "Show colour buttons",
     no_sources: "No sources available",
+    popup: "Popup (like the INPUT button)",
+    show_title: "Show title",
+    show_status: "Show status line (e.g. On · TV)",
+    close: "Close",
+    inputs: "Inputs shown in the INPUT popup",
+    inputs_hint: "Leave empty to show the full list from the TV.",
+    add_input: "Add input",
+    f_input: "TV input / app",
     shortcuts: "Quick-launch shortcuts",
     add_shortcut: "Add shortcut",
     reset_shortcuts: "Restore defaults",
@@ -68,6 +76,14 @@ const I18N = {
     hidden: "Non mostrare mai",
     show_colors: "Mostra tasti colorati",
     no_sources: "Nessuna sorgente disponibile",
+    popup: "Popup (come il tasto INPUT)",
+    show_title: "Mostra titolo",
+    show_status: "Mostra riga di stato (es. Acceso · TV)",
+    close: "Chiudi",
+    inputs: "Input mostrati nel popup INPUT",
+    inputs_hint: "Lascia vuoto per mostrare tutta la lista della TV.",
+    add_input: "Aggiungi input",
+    f_input: "Ingresso / app della TV",
     shortcuts: "Tasti rapidi",
     add_shortcut: "Aggiungi tasto rapido",
     reset_shortcuts: "Ripristina predefiniti",
@@ -171,6 +187,12 @@ const STYLE = `
              border-radius: 24px; overflow-y: auto;
              background: var(--ha-card-background, var(--card-background-color)); box-shadow: 0 0 0 1px var(--divider-color); }
   .overlay.open { display: flex; }
+  .ovhead { display: flex; align-items: center; justify-content: space-between; }
+  .ovhead h4 { margin: 4px 6px 6px; }
+  .overlay .ovclose { justify-content: center; border-radius: 50%; min-width: 36px; width: 36px; height: 36px; padding: 0; background: transparent; }
+  .overlay .numpad button { justify-content: center; border-radius: 999px; height: 46px; }
+  .overlay .numpad.big { margin: auto 0; gap: 14px; }
+  .overlay .numpad.big button { width: 72px; height: 56px; font-size: 20px; }
   .overlay h4 { margin: 4px 6px 6px; font-weight: 500; font-size: 14px; color: var(--secondary-text-color); }
   .overlay button { justify-content: flex-start; gap: 12px; height: 46px; border-radius: 14px; font-size: 14px; letter-spacing: 0; }
   .overlay button.current { color: var(--primary-color); box-shadow: inset 0 0 0 2px var(--primary-color); }
@@ -207,6 +229,9 @@ class HisenseVidaaRemoteCard extends HTMLElement {
     this._config = {
       numpad: "collapsed",
       show_colors: false,
+      show_title: true,
+      show_status: true,
+      inputs: [],
       sources: DEFAULT_SHORTCUTS,
       ...config,
     };
@@ -277,7 +302,7 @@ class HisenseVidaaRemoteCard extends HTMLElement {
       .map((n) => this._key(`num_${n}`, `<span class="txt">${n}</span>`))
       .join("");
     const numpad =
-      numMode === "hidden"
+      numMode === "hidden" || numMode === "popup"
         ? ""
         : `<div class="collapsible ${this._numOpen ? "open" : ""}" id="numwrap"><div>
             <div class="numpad">
@@ -287,6 +312,15 @@ class HisenseVidaaRemoteCard extends HTMLElement {
               <span></span>
             </div>
           </div></div>`;
+    const showTitle = c.show_title !== false;
+    const showStatus = c.show_status !== false;
+    const header =
+      showTitle || showStatus
+        ? `<div class="header">
+            ${showTitle ? '<div class="title" id="title"></div>' : ""}
+            ${showStatus ? '<div class="status"><span class="dot"></span><span id="status"></span></div>' : ""}
+          </div>`
+        : "";
     const colors = c.show_colors
       ? `<div class="colors ctrl">
           ${["red", "green", "yellow", "blue"].map((k) => this._key(k, "", { cls: `c-${k}`, title: k })).join("")}
@@ -297,10 +331,7 @@ class HisenseVidaaRemoteCard extends HTMLElement {
       <style>${STYLE}</style>
       <ha-card>
         <div class="remote" id="remote">
-          <div class="header">
-            <div class="title" id="title"></div>
-            <div class="status"><span class="dot"></span><span id="status"></span></div>
-          </div>
+          ${header}
 
           <div class="grid3">
             <span></span>
@@ -437,13 +468,20 @@ class HisenseVidaaRemoteCard extends HTMLElement {
         hass.callService("media_player", "select_source", { entity_id: entity, source: b.dataset.source });
         break;
       case "input":
-        this._toggleOverlay();
+        this._toggleOverlay("input");
         break;
       case "pick":
         hass.callService("media_player", "select_source", { entity_id: entity, source: b.dataset.source });
         this._closeOverlay();
         break;
+      case "close":
+        this._closeOverlay();
+        break;
       case "numtoggle":
+        if (this._config.numpad === "popup") {
+          this._toggleOverlay("numpad");
+          break;
+        }
         this._numOpen = !this._numOpen;
         this.shadowRoot.getElementById("numwrap")?.classList.toggle("open", this._numOpen);
         this.shadowRoot.getElementById("numtoggle")?.classList.toggle("active", this._numOpen);
@@ -452,24 +490,43 @@ class HisenseVidaaRemoteCard extends HTMLElement {
   }
 
   // -------------------------------------------------------------- overlay
-  _toggleOverlay() {
+  _toggleOverlay(kind) {
     const ov = this.shadowRoot.getElementById("overlay");
-    if (ov.classList.contains("open")) return this._closeOverlay();
-    const st = this._hass.states[this._config.entity];
-    const list = st?.attributes?.source_list || [];
-    const cur = st?.attributes?.source;
-    const icon = (s) =>
-      /hdmi/i.test(s) ? "mdi:video-input-hdmi" : /^(tv|dtv|atv)/i.test(s) ? "mdi:television-classic" : /av|component/i.test(s) ? "mdi:video-input-component" : "mdi:apps";
-    ov.innerHTML =
-      `<h4>${esc(this._t("sources"))}</h4>` +
-      (list.length
-        ? list
-            .map(
-              (s) =>
-                `<button data-act="pick" data-source="${esc(s)}" class="${s === cur ? "current" : ""}">${this._ico(icon(s))}<span class="txt">${esc(s)}</span></button>`
-            )
-            .join("")
-        : `<div class="empty">${esc(this._t("no_sources"))}</div>`);
+    if (ov.classList.contains("open") && ov.dataset.kind === kind) return this._closeOverlay();
+    ov.dataset.kind = kind;
+    const close = `<button class="ovclose" data-act="close" title="${esc(this._t("close"))}">${this._ico("mdi:close")}</button>`;
+    if (kind === "numpad") {
+      const digits = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        .map((n) => this._key(`num_${n}`, `<span class="txt">${n}</span>`))
+        .join("");
+      ov.innerHTML = `<div class="ovhead"><h4>${esc(this._t("numpad"))}</h4>${close}</div>
+        <div class="numpad big">
+          ${digits}
+          ${this._key("channel_dot", `<span class="txt">–</span>`, { title: "-" })}
+          ${this._key("num_0", `<span class="txt">0</span>`)}
+          ${this._key("ok", `<span class="txt">OK</span>`, { title: "OK" })}
+        </div>`;
+    } else {
+      const st = this._hass.states[this._config.entity];
+      const full = st?.attributes?.source_list || [];
+      const cur = st?.attributes?.source;
+      const chosen = (this._config.inputs || []).filter((i) => i && i.source);
+      const items = chosen.length
+        ? chosen.map((i) => ({ source: i.source, name: i.name || i.source, icon: i.icon }))
+        : full.map((s) => ({ source: s, name: s }));
+      const guess = (s) =>
+        /hdmi/i.test(s) ? "mdi:video-input-hdmi" : /^(tv|dtv|atv)/i.test(s) ? "mdi:television-classic" : /^(av|component)/i.test(s) ? "mdi:video-input-component" : "mdi:apps";
+      ov.innerHTML =
+        `<div class="ovhead"><h4>${esc(this._t("sources"))}</h4>${close}</div>` +
+        (items.length
+          ? items
+              .map(
+                (i) =>
+                  `<button data-act="pick" data-source="${esc(i.source)}" class="${i.source === cur ? "current" : ""}">${this._ico(i.icon || guess(i.source))}<span class="txt">${esc(i.name)}</span></button>`
+              )
+              .join("")
+          : `<div class="empty">${esc(this._t("no_sources"))}</div>`);
+    }
     ov.classList.add("open");
   }
 
@@ -488,12 +545,14 @@ class HisenseVidaaRemoteCard extends HTMLElement {
     remote.classList.toggle("unavailable", unavailable);
 
     const title = this._config.name ?? st?.attributes?.friendly_name ?? this._config.entity;
-    this.shadowRoot.getElementById("title").textContent = title;
+    const titleEl = this.shadowRoot.getElementById("title");
+    if (titleEl) titleEl.textContent = title;
     const statusKey = unavailable ? "unavailable" : isOn ? "on" : "off";
     let status = this._t(statusKey);
     const src = st?.attributes?.source;
     if (isOn && !unavailable && src) status += ` · ${src}`;
-    this.shadowRoot.getElementById("status").textContent = status;
+    const statusEl = this.shadowRoot.getElementById("status");
+    if (statusEl) statusEl.textContent = status;
 
     const muted = !!st?.attributes?.is_volume_muted;
     this.shadowRoot.getElementById("mute")?.classList.toggle("active", muted);
@@ -530,7 +589,8 @@ const EDITOR_STYLE = `
   .ib:hover { background: var(--secondary-background-color); }
   .ib[disabled] { opacity: .3; cursor: default; }
   .ib.del { color: var(--error-color); }
-  h3 { margin: 18px 0 4px; font-size: 14px; font-weight: 500; color: var(--secondary-text-color); }
+  h3 { margin: 18px 0 2px; font-size: 14px; font-weight: 500; color: var(--secondary-text-color); }
+  .hint { font-size: 12px; color: var(--secondary-text-color); margin-bottom: 4px; }
   .add, .reset { cursor: pointer; border: 1px solid var(--primary-color); color: var(--primary-color); background: none;
                  border-radius: 18px; padding: 8px 16px; font: inherit; margin: 6px 8px 0 0; }
 `;
@@ -562,38 +622,99 @@ class HisenseVidaaRemoteCardEditor extends HTMLElement {
     this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }));
   }
 
-  _sources() {
-    return (this._config.sources ?? DEFAULT_SHORTCUTS).map((s) => ({ ...s }));
-  }
-
-  _setSources(list, rerender = true) {
-    this._emit({ ...this._config, sources: list });
-    if (rerender) this._render();
-  }
-
-  // item <-> form-data mapping
-  static _toForm(s) {
-    const action = s.key ? "key" : s.source ? "source" : "app";
-    return { name: s.name || "", icon: s.icon || "", text: s.text || "", action, value: s[action] || "" };
-  }
-  static _fromForm(d) {
-    const out = {};
-    if (d.name) out.name = d.name;
-    if (d.icon) out.icon = d.icon;
-    if (d.text) out.text = d.text;
-    if (d.value) out[d.action || "app"] = d.value;
-    return out;
+  _sourceList() {
+    return this._hass?.states?.[this._config.entity]?.attributes?.source_list || [];
   }
 
   _valueOptions(action) {
-    const st = this._hass?.states?.[this._config.entity];
-    const list = st?.attributes?.source_list || [];
+    const list = this._sourceList();
     if (action === "key") return KEY_OPTIONS;
     if (action === "source") return list;
-    const apps = list.filter((s) => !/hdmi|^(tv|dtv|atv|av|component)/i.test(s));
+    const apps = list.filter((s) => !/hdmi|^(tv|dtv|atv|av|component)$/i.test(s));
     return [...new Set([...COMMON_APPS, ...apps])];
   }
 
+  // ---- list definitions -------------------------------------------------
+  _shortcutsDef() {
+    const actionLabels = { app: this._t("act_app"), source: this._t("act_source"), key: this._t("act_key") };
+    return {
+      key: "sources",
+      title: this._t("shortcuts"),
+      items: () => (this._config.sources ?? DEFAULT_SHORTCUTS).map((s) => ({ ...s })),
+      newItem: () => ({ name: "", icon: "mdi:apps", app: "" }),
+      reset: () => DEFAULT_SHORTCUTS.map((s) => ({ ...s })),
+      addLabel: this._t("add_shortcut"),
+      titleOf: (s) => s.name || s.app || s.source || s.key,
+      toForm: (s) => {
+        const action = s.key ? "key" : s.source ? "source" : "app";
+        return { name: s.name || "", icon: s.icon || "", text: s.text || "", action, value: s[action] || "" };
+      },
+      fromForm: (d) => {
+        const out = {};
+        if (d.name) out.name = d.name;
+        if (d.icon) out.icon = d.icon;
+        if (d.text) out.text = d.text;
+        out[d.action || "app"] = d.value || "";
+        return out;
+      },
+      schema: (d) => [
+        { name: "name", selector: { text: {} } },
+        {
+          type: "grid",
+          name: "",
+          schema: [
+            { name: "icon", selector: { icon: {} } },
+            { name: "text", selector: { text: {} } },
+          ],
+        },
+        {
+          name: "action",
+          selector: {
+            select: { mode: "dropdown", options: ["app", "source", "key"].map((v) => ({ value: v, label: actionLabels[v] })) },
+          },
+        },
+        { name: "value", selector: { select: { mode: "dropdown", custom_value: true, options: this._valueOptions(d.action) } } },
+      ],
+      label: (n, d) =>
+        n === "value" ? this._t(`val_${d.action}`) : this._t({ name: "f_name", icon: "f_icon", text: "f_text", action: "f_action" }[n]),
+      // changing the action clears the value (its options differ)
+      normalize: (d, prev) => (d.action !== prev.action ? { ...d, value: "" } : d),
+      rebuildSchemaOn: (d, prev) => d.action !== prev.action,
+    };
+  }
+
+  _inputsDef() {
+    return {
+      key: "inputs",
+      title: this._t("inputs"),
+      hint: this._t("inputs_hint"),
+      items: () => (this._config.inputs || []).map((s) => ({ ...s })),
+      newItem: () => ({ source: "", name: "", icon: "" }),
+      addLabel: this._t("add_input"),
+      titleOf: (s) => s.name || s.source,
+      toForm: (s) => ({ source: s.source || "", name: s.name || "", icon: s.icon || "" }),
+      fromForm: (d) => {
+        const out = { source: d.source || "" };
+        if (d.name) out.name = d.name;
+        if (d.icon) out.icon = d.icon;
+        return out;
+      },
+      schema: () => [
+        { name: "source", selector: { select: { mode: "dropdown", custom_value: true, options: this._sourceList() } } },
+        {
+          type: "grid",
+          name: "",
+          schema: [
+            { name: "name", selector: { text: {} } },
+            { name: "icon", selector: { icon: {} } },
+          ],
+        },
+      ],
+      label: (n) => this._t({ source: "f_input", name: "f_name", icon: "f_icon" }[n]),
+    };
+  }
+
+  // ---- rendering ----------------------------------------------------------
   _render() {
     if (!this._hass || !this._config) return;
     this.innerHTML = "";
@@ -601,16 +722,24 @@ class HisenseVidaaRemoteCardEditor extends HTMLElement {
     style.textContent = EDITOR_STYLE;
     this.appendChild(style);
 
-    // ---- main settings
     const main = document.createElement("ha-form");
     this._mainForm = main;
     main.hass = this._hass;
-    main.data = { numpad: "collapsed", show_colors: false, ...this._config };
-    const labels = { entity: "entity", name: "name", numpad: "numpad_mode", show_colors: "show_colors" };
+    main.data = { numpad: "collapsed", show_colors: false, show_title: true, show_status: true, ...this._config };
+    const labels = {
+      entity: "entity",
+      name: "name",
+      numpad: "numpad_mode",
+      show_colors: "show_colors",
+      show_title: "show_title",
+      show_status: "show_status",
+    };
     main.computeLabel = (s) => this._t(labels[s.name] || s.name);
     main.schema = [
       { name: "entity", required: true, selector: { entity: { domain: "media_player", integration: "hisense_vidaa" } } },
       { name: "name", selector: { text: {} } },
+      { name: "show_title", selector: { boolean: {} } },
+      { name: "show_status", selector: { boolean: {} } },
       {
         name: "numpad",
         selector: {
@@ -619,6 +748,7 @@ class HisenseVidaaRemoteCardEditor extends HTMLElement {
             options: [
               { value: "collapsed", label: this._t("collapsed") },
               { value: "expanded", label: this._t("expanded") },
+              { value: "popup", label: this._t("popup") },
               { value: "hidden", label: this._t("hidden") },
             ],
           },
@@ -632,22 +762,36 @@ class HisenseVidaaRemoteCardEditor extends HTMLElement {
     });
     this.appendChild(main);
 
-    // ---- shortcuts
-    const h = document.createElement("h3");
-    h.textContent = this._t("shortcuts");
-    this.appendChild(h);
-
-    const sources = this._sources();
     this._itemForms = [];
-    const actionLabels = { app: this._t("act_app"), source: this._t("act_source"), key: this._t("act_key") };
-    sources.forEach((s, i) => {
+    this._renderList(this._inputsDef());
+    this._renderList(this._shortcutsDef());
+  }
+
+  _renderList(def) {
+    const h = document.createElement("h3");
+    h.textContent = def.title;
+    this.appendChild(h);
+    if (def.hint) {
+      const hint = document.createElement("div");
+      hint.className = "hint";
+      hint.textContent = def.hint;
+      this.appendChild(hint);
+    }
+
+    const commit = (list, rerender) => {
+      this._emit({ ...this._config, [def.key]: list });
+      if (rerender) this._render();
+    };
+
+    const items = def.items();
+    items.forEach((item, i) => {
       const box = document.createElement("div");
       box.className = "item";
       const head = document.createElement("div");
       head.className = "item-head";
       const title = document.createElement("span");
       title.className = "grow";
-      title.textContent = s.name || s.app || s.source || s.key || `#${i + 1}`;
+      title.textContent = def.titleOf(item) || `#${i + 1}`;
       head.appendChild(title);
       const mkBtn = (icon, cls, disabled, fn) => {
         const b = document.createElement("button");
@@ -658,66 +802,34 @@ class HisenseVidaaRemoteCardEditor extends HTMLElement {
         head.appendChild(b);
       };
       const move = (d) => () => {
-        const l = this._sources();
+        const l = def.items();
         [l[i], l[i + d]] = [l[i + d], l[i]];
-        this._setSources(l);
+        commit(l, true);
       };
       mkBtn("mdi:arrow-up", "", i === 0, move(-1));
-      mkBtn("mdi:arrow-down", "", i === sources.length - 1, move(1));
+      mkBtn("mdi:arrow-down", "", i === items.length - 1, move(1));
       mkBtn("mdi:delete-outline", "del", false, () => {
-        const l = this._sources();
+        const l = def.items();
         l.splice(i, 1);
-        this._setSources(l);
+        commit(l, true);
       });
       box.appendChild(head);
 
       const form = document.createElement("ha-form");
       form.hass = this._hass;
-      const data = HisenseVidaaRemoteCardEditor._toForm(s);
-      form.data = data;
-      const il = { name: "f_name", icon: "f_icon", text: "f_text", action: "f_action", value: "f_value" };
-      form.computeLabel = (sch) => (sch.name === "value" ? this._t(`val_${form.data.action}`) : this._t(il[sch.name]));
-      const buildSchema = (action) => [
-        { name: "name", selector: { text: {} } },
-        {
-          type: "grid",
-          name: "",
-          schema: [
-            { name: "icon", selector: { icon: {} } },
-            { name: "text", selector: { text: {} } },
-          ],
-        },
-        {
-          name: "action",
-          selector: {
-            select: {
-              mode: "dropdown",
-              options: ["app", "source", "key"].map((v) => ({ value: v, label: actionLabels[v] })),
-            },
-          },
-        },
-        {
-          name: "value",
-          selector: { select: { mode: "dropdown", custom_value: true, options: this._valueOptions(action) } },
-        },
-      ];
-      form.schema = buildSchema(data.action);
+      form.data = def.toForm(item);
+      form.computeLabel = (sch) => def.label(sch.name, form.data);
+      form.schema = def.schema(form.data);
       form.addEventListener("value-changed", (ev) => {
         ev.stopPropagation();
-        const d = { ...ev.detail.value };
-        const actionChanged = d.action !== form.data.action;
-        if (actionChanged) d.value = "";
+        const prev = form.data;
+        const d = def.normalize ? def.normalize({ ...ev.detail.value }, prev) : { ...ev.detail.value };
         form.data = d;
-        const l = this._sources();
-        l[i] = HisenseVidaaRemoteCardEditor._fromForm(d);
-        if (actionChanged) {
-          // keep the chosen action (an empty value cannot store it) and refresh the value list
-          l[i][d.action] = "";
-          this._emit({ ...this._config, sources: l });
-          form.schema = buildSchema(d.action);
-        } else {
-          this._setSources(l, false);
-        }
+        const l = def.items();
+        l[i] = def.fromForm(d);
+        if (def.rebuildSchemaOn && def.rebuildSchemaOn(d, prev)) form.schema = def.schema(d);
+        commit(l, false);
+        title.textContent = def.titleOf(l[i]) || `#${i + 1}`;
       });
       this._itemForms.push(form);
       box.appendChild(form);
@@ -726,19 +838,21 @@ class HisenseVidaaRemoteCardEditor extends HTMLElement {
 
     const add = document.createElement("button");
     add.className = "add";
-    add.textContent = `+ ${this._t("add_shortcut")}`;
+    add.textContent = `+ ${def.addLabel}`;
     add.addEventListener("click", () => {
-      const l = this._sources();
-      l.push({ name: "", icon: "mdi:apps", app: "" });
-      this._setSources(l);
+      const l = def.items();
+      l.push(def.newItem());
+      commit(l, true);
     });
     this.appendChild(add);
 
-    const reset = document.createElement("button");
-    reset.className = "reset";
-    reset.textContent = this._t("reset_shortcuts");
-    reset.addEventListener("click", () => this._setSources(DEFAULT_SHORTCUTS.map((s) => ({ ...s }))));
-    this.appendChild(reset);
+    if (def.reset) {
+      const reset = document.createElement("button");
+      reset.className = "reset";
+      reset.textContent = this._t("reset_shortcuts");
+      reset.addEventListener("click", () => commit(def.reset(), true));
+      this.appendChild(reset);
+    }
   }
 }
 

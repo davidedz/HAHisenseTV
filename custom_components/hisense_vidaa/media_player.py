@@ -1,6 +1,7 @@
 """Media player platform for the Hisense VIDAA TV integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -160,6 +161,17 @@ class VidaaMediaPlayer(VidaaEntity, MediaPlayerEntity):
     async def async_select_source(self, source: str) -> None:
         if source in self._hw_sources:
             await self.coordinator.tv.async_set_source(self._hw_sources[source])
+            # The "TV" input is already active while a VIDAA app or the home
+            # screen is on top of it, so switching to it does nothing visible.
+            # Also open the live-TV channels app (e.g. "Canali DTV") if present.
+            if source.strip().lower() in ("tv", "dtv", "atv"):
+                live = next(
+                    (name for name in self._app_sources if "dtv" in name.lower()),
+                    None,
+                )
+                if live:
+                    await asyncio.sleep(0.5)
+                    await self.coordinator.tv.async_launch_app(self._app_sources[live])
         elif source in self._app_sources:
             await self.coordinator.tv.async_launch_app(self._app_sources[source])
         else:
