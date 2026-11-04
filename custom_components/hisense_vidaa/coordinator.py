@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -39,7 +40,7 @@ class VidaaCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._port: int = entry.data.get(CONF_PORT, DEFAULT_PORT)
         self._mac: str | None = entry.data.get(CONF_MAC)
 
-        storage = TokenStorage(hass.config.path(TOKEN_FILE))
+        storage = TokenStorage(Path(hass.config.path(TOKEN_FILE)))
         self.tv = AsyncVidaaTV(
             host=self._host,
             port=self._port,

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
@@ -60,15 +61,19 @@ class VidaaConfigFlow(ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(self._mac or self._host)
             self._abort_if_unique_id_configured()
 
-            self._tv = self._build_client()
-            connected = await self._tv.async_connect(timeout=15)
-            if not connected:
+            try:
+                self._tv = self._build_client()
+                connected = await self._tv.async_connect(timeout=15)
+                if not connected:
+                    errors["base"] = "cannot_connect"
+                elif self._tv.is_authenticated():
+                    return await self._create_entry()
+                else:
+                    await self._tv.async_start_pairing()
+                    return await self.async_step_pair()
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Unexpected error connecting to VIDAA TV")
                 errors["base"] = "cannot_connect"
-            elif self._tv.is_authenticated():
-                return await self._create_entry()
-            else:
-                await self._tv.async_start_pairing()
-                return await self.async_step_pair()
 
         schema = vol.Schema(
             {
@@ -90,12 +95,16 @@ class VidaaConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None and self._tv is not None:
             pin = str(user_input[CONF_PIN]).strip()
-            ok = await self._tv.async_authenticate(pin, timeout=12)
-            if ok or self._tv.is_authenticated():
-                return await self._create_entry()
-            errors["base"] = "invalid_auth"
-            # Issue a fresh PIN for the next attempt.
-            await self._tv.async_start_pairing()
+            try:
+                ok = await self._tv.async_authenticate(pin, timeout=12)
+                if ok or self._tv.is_authenticated():
+                    return await self._create_entry()
+                errors["base"] = "invalid_auth"
+                # Issue a fresh PIN for the next attempt.
+                await self._tv.async_start_pairing()
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Unexpected error during pairing")
+                errors["base"] = "invalid_auth"
 
         schema = vol.Schema({vol.Required(CONF_PIN): cv.string})
         return self.async_show_form(
@@ -143,7 +152,7 @@ class VidaaConfigFlow(ConfigFlow, domain=DOMAIN):
 
     # -- helpers --------------------------------------------------------
     def _build_client(self) -> AsyncVidaaTV:
-        storage = TokenStorage(self.hass.config.path(TOKEN_FILE))
+        storage = TokenStorage(Path(self.hass.config.path(TOKEN_FILE)))
         return AsyncVidaaTV(
             host=self._host,
             port=self._port,
