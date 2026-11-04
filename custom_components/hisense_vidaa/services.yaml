@@ -1,0 +1,41 @@
+send_key:
+  name: Send key
+  description: Send a raw remote-control key press to the TV.
+  fields:
+    entity_id:
+      name: Entity
+      description: Target media_player/remote entity (optional, defaults to all).
+      required: false
+      selector:
+        entity:
+          integration: hisense_vidaa
+    key:
+      name: Key
+      description: >
+        A friendly key name (power, home, menu, back, exit, up, down, left,
+        right, ok, volume_up, volume_down, mute, channel_up, channel_down,
+        play, pause, stop, red, green, yellow, blue, num_0..num_9, ...) or a
+        raw VIDAA code such as KEY_POWER.
+      required: true
+      example: "home"
+      selector:
+        text:
+
+launch_app:
+  name: Launch app
+  description: Launch an app on the TV by name.
+  fields:
+    entity_id:
+      name: Entity
+      description: Target media_player/remote entity (optional, defaults to all).
+      required: false
+      selector:
+        entity:
+          integration: hisense_vidaa
+    app:
+      name: App
+      description: App name (e.g. netflix, youtube, amazon, disney, tubi) or an installed app's exact name.
+      required: true
+      example: "netflix"
+      selector:
+        text:

@@ -1,0 +1,68 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hisense VIDAA TV",
+        "description": "Enter the TV's IP address. Providing the MAC address enables Wake-on-LAN power-on and is recommended on recent firmware.",
+        "data": {
+          "host": "IP address",
+          "mac": "MAC address (optional)",
+          "port": "Port",
+          "name": "Name"
+        }
+      },
+      "pair": {
+        "title": "Pair with the TV",
+        "description": "A 4-digit PIN is shown on the TV screen. Enter it below. If it expires, leave it and submit again to get a new one.",
+        "data": {
+          "pin": "PIN"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-pair with the TV",
+        "description": "The saved token is no longer valid. A 4-digit PIN is shown on the TV screen; enter it to re-pair.",
+        "data": {
+          "pin": "PIN"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the TV. Make sure it is on and reachable on the network.",
+      "invalid_auth": "PIN not accepted or expired. Check the code on the TV and try again."
+    },
+    "abort": {
+      "already_configured": "This TV is already configured.",
+      "reauth_successful": "Re-pairing successful."
+    }
+  },
+  "services": {
+    "send_key": {
+      "name": "Send key",
+      "description": "Send a raw remote-control key press to the TV.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity",
+          "description": "Target entity (optional, defaults to all)."
+        },
+        "key": {
+          "name": "Key",
+          "description": "Friendly key name or raw VIDAA code (e.g. KEY_POWER)."
+        }
+      }
+    },
+    "launch_app": {
+      "name": "Launch app",
+      "description": "Launch an app on the TV by name.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity",
+          "description": "Target entity (optional, defaults to all)."
+        },
+        "app": {
+          "name": "App",
+          "description": "App name (e.g. netflix, youtube) or an installed app's exact name."
+        }
+      }
+    }
+  }
+}

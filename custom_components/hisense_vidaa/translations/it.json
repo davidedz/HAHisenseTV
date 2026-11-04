@@ -1,0 +1,68 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hisense VIDAA TV",
+        "description": "Inserisci l'indirizzo IP della TV. Fornire il MAC abilita l'accensione via Wake-on-LAN ed è consigliato sui firmware recenti.",
+        "data": {
+          "host": "Indirizzo IP",
+          "mac": "Indirizzo MAC (opzionale)",
+          "port": "Porta",
+          "name": "Nome"
+        }
+      },
+      "pair": {
+        "title": "Associa la TV",
+        "description": "Sullo schermo della TV compare un PIN a 4 cifre. Inseriscilo qui sotto. Se scade, invia di nuovo per generarne uno nuovo.",
+        "data": {
+          "pin": "PIN"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Ri-associa la TV",
+        "description": "Il token salvato non è più valido. Sullo schermo della TV compare un PIN a 4 cifre: inseriscilo per ri-associare.",
+        "data": {
+          "pin": "PIN"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossibile connettersi alla TV. Verifica che sia accesa e raggiungibile in rete.",
+      "invalid_auth": "PIN non accettato o scaduto. Controlla il codice sulla TV e riprova."
+    },
+    "abort": {
+      "already_configured": "Questa TV è già configurata.",
+      "reauth_successful": "Ri-associazione completata."
+    }
+  },
+  "services": {
+    "send_key": {
+      "name": "Invia tasto",
+      "description": "Invia la pressione di un tasto del telecomando alla TV.",
+      "fields": {
+        "entity_id": {
+          "name": "Entità",
+          "description": "Entità di destinazione (opzionale, altrimenti tutte)."
+        },
+        "key": {
+          "name": "Tasto",
+          "description": "Nome tasto semplice o codice VIDAA grezzo (es. KEY_POWER)."
+        }
+      }
+    },
+    "launch_app": {
+      "name": "Avvia app",
+      "description": "Avvia un'app sulla TV per nome.",
+      "fields": {
+        "entity_id": {
+          "name": "Entità",
+          "description": "Entità di destinazione (opzionale, altrimenti tutte)."
+        },
+        "app": {
+          "name": "App",
+          "description": "Nome app (es. netflix, youtube) o nome esatto di un'app installata."
+        }
+      }
+    }
+  }
+}
