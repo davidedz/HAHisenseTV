@@ -66,7 +66,7 @@ class VidaaConfigFlow(ConfigFlow, domain=DOMAIN):
                 connected = await self._tv.async_connect(timeout=15)
                 if not connected:
                     errors["base"] = "cannot_connect"
-                elif self._tv.is_authenticated():
+                elif self._tv.is_authenticated:
                     return await self._create_entry()
                 else:
                     await self._tv.async_start_pairing()
@@ -97,7 +97,7 @@ class VidaaConfigFlow(ConfigFlow, domain=DOMAIN):
             pin = str(user_input[CONF_PIN]).strip()
             try:
                 ok = await self._tv.async_authenticate(pin, timeout=12)
-                if ok or self._tv.is_authenticated():
+                if ok or self._tv.is_authenticated:
                     return await self._create_entry()
                 errors["base"] = "invalid_auth"
                 # Issue a fresh PIN for the next attempt.
@@ -128,7 +128,7 @@ class VidaaConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None and self._tv is not None:
             pin = str(user_input[CONF_PIN]).strip()
             ok = await self._tv.async_authenticate(pin, timeout=12)
-            if ok or self._tv.is_authenticated():
+            if ok or self._tv.is_authenticated:
                 entry = self.hass.config_entries.async_get_entry(
                     self.context["entry_id"]
                 )
@@ -141,7 +141,7 @@ class VidaaConfigFlow(ConfigFlow, domain=DOMAIN):
         if self._tv is None:
             self._tv = self._build_client()
             await self._tv.async_connect(timeout=15)
-            if self._tv.is_authenticated():
+            if self._tv.is_authenticated:
                 return self.async_abort(reason="reauth_successful")
             await self._tv.async_start_pairing()
 

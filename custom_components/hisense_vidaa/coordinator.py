@@ -91,7 +91,7 @@ class VidaaCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         connected = await self.tv.async_connect(timeout=15)
         if not connected:
             raise UpdateFailed(f"Cannot connect to TV at {self._host}:{self._port}")
-        if not self.tv.is_authenticated():
+        if not self.tv.is_authenticated:
             raise ConfigEntryAuthFailed(
                 "TV rejected the saved token; re-pairing required"
             )
