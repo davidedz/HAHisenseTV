@@ -54,6 +54,27 @@ folder and restart.
 The auth token is stored in `config/hisense_vidaa_tokens.json` so subsequent
 restarts reconnect without a PIN.
 
+## Remote card
+
+The integration ships a TV-remote style Lovelace card and registers it
+automatically (no manual resource needed — restart HA and hard-refresh the
+browser). Everything is configured from the UI:
+
+1. Edit a dashboard → **Add card** → *Hisense VIDAA Remote*.
+2. Pick the TV's media player, an optional name, and whether the number pad is
+   collapsible (closed/open at start) or hidden; optionally show the colour keys.
+3. Under **Quick-launch shortcuts** add, reorder or remove buttons. Each one has
+   a name, an icon (or short text), and an action: *Launch app*, *Select
+   source* (any input from the TV's source list) or *Send key*. **Restore
+   defaults** brings back Netflix, Prime Video, Disney+ and YouTube.
+
+The card has power with on/off status, D-pad + OK (hold to repeat),
+back/exit/home, an **INPUT** button that opens the full source list,
+volume/mute/channel, menu/info, play/pause/stop, rewind/forward/subtitles and a
+collapsible number pad. (YAML is still supported: `type:
+custom:hisense-vidaa-remote-card`, `entity`, `name`, `numpad`, `show_colors`,
+`sources` with `icon`/`text` plus one of `app`, `source`, `key`.)
+
 ## Services
 
 ### `hisense_vidaa.send_key`
@@ -75,7 +96,7 @@ remote entity with the same key names.
 
 `power, home, menu, back, exit, returns, info, subtitle, up, down, left, right,
 ok, volume_up, volume_down, mute, channel_up, channel_down, channel_dot, play,
-pause, stop, fast_forward, red, green, yellow, blue, zoom_in, zoom_out,
+pause, stop, rewind, fast_forward, red, green, yellow, blue, zoom_in, zoom_out,
 voice_up, voice_down, num_0 … num_9`
 
 ## Notes & limitations

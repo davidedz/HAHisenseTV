@@ -22,6 +22,10 @@ UPDATE_INTERVAL_SECONDS: Final = 20
 
 PLATFORMS: Final = ["media_player", "remote"]
 
+# Lovelace card shipped with the integration.
+CARD_URL_PATH: Final = "/hisense_vidaa_static/hisense-vidaa-remote-card.js"
+CARD_FILENAME: Final = "hisense-vidaa-remote-card.js"
+
 # ---------------------------------------------------------------------------
 # Remote keys
 # ---------------------------------------------------------------------------
@@ -33,7 +37,7 @@ KEY_MAP: Final[dict[str, str]] = {
     "power": "KEY_POWER",
     "home": "KEY_HOME",
     "menu": "KEY_MENU",
-    "back": "KEY_BACK",
+    "back": "KEY_RETURNS",
     "exit": "KEY_EXIT",
     "returns": "KEY_RETURNS",
     "info": "KEY_INFO",
@@ -56,6 +60,7 @@ KEY_MAP: Final[dict[str, str]] = {
     "stop": "KEY_STOP",
     "fast_forward": "KEY_FORWARDS",
     "forward": "KEY_FORWARDS",
+    "rewind": "KEY_BACK",
     "red": "KEY_RED",
     "green": "KEY_GREEN",
     "yellow": "KEY_YELLOW",

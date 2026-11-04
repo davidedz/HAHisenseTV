@@ -2,16 +2,22 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import voluptuous as vol
 
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv, entity_registry as er
+from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     ATTR_APP,
+    CARD_FILENAME,
+    CARD_URL_PATH,
     ATTR_KEY,
     DOMAIN,
     KEY_MAP,
@@ -24,6 +30,21 @@ from .coordinator import VidaaCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 _PLATFORMS = [Platform(p) for p in PLATFORMS]
+
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Serve the bundled Lovelace remote card and load it in the frontend."""
+    card = Path(__file__).parent / "www" / CARD_FILENAME
+    if card.is_file():
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(CARD_URL_PATH, str(card), cache_headers=False)]
+        )
+        version = (await hass.async_add_executor_job(card.stat)).st_mtime_ns
+        add_extra_js_url(hass, f"{CARD_URL_PATH}?v={version}")
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
